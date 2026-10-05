@@ -1,0 +1,55 @@
+# ==========================================================
+#   WAND SETTINGS  -  open this file in Notepad, change a
+#   word after the "=" sign, save. The wand restarts by itself.
+#   Lines starting with # are notes and are ignored.
+# ==========================================================
+
+# What should the wand show?
+#    text  = the words in message.txt
+#    image = the picture in image.bmp
+#    both  = swap between the two every few seconds
+SHOW = text
+
+# When SHOW = both: how many seconds to show each one
+SECONDS = 4
+
+# Make the display wider (bigger than 1) or narrower (smaller than 1)
+STRETCH = 1.0
+
+# Picture only: which pixels light up?
+#    dark  = the black parts of your drawing light up (best for drawing in Paint)
+#    light = the white parts light up
+LIT = dark
+
+# Only show while the wand moves one way?   both / right / left
+PASSES = both
+
+# Holding the wand upside down?   yes / no
+FLIP_VERTICAL = no
+
+# If words come out backwards, change this to -1
+SIGN = 1
+
+# ---------------- setup / tuning (usually set once) ----------------
+
+# Lines up the left-to-right and right-to-left passes.
+# Turn CALIBRATE on, wave the wand, and you should see ONE thin bar.
+# If you see two bars, change SHIFT_MS (try 2, 4, 6, 8... or -2, -4...) until they merge.
+CALIBRATE = no
+SHIFT_MS = 0
+
+# Which part of the swing keeps time:
+#    peaks = the two ends of the swing (recommended - works for any swing style)
+#    zero  = the middle of the swing (only for very smooth, gentle swings)
+#    auto  = the wand picks one from how you swing
+ANCHOR = peaks
+
+# How much of the full sweep the display uses, in percent. The ends of a swing are
+# slow and squashed, so only the middle is used. Lower = narrower and cleaner.
+WIDTH = 70
+
+# Shape of your swing: auto, or a number from 0 (smooth) to 1 (sharp flicks at steady speed)
+SHAPE = auto
+
+# yes = prints diagnostics to the serial console (leave on while tuning)
+DEBUG = yes
