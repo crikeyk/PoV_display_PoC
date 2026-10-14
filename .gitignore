@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+
+# Junk copied off a Mac-formatted CIRCUITPY drive
+.Trash-1000
+.Trashes
+.fseventsd/
+.metadata_never_index
+
+# CH572 compiler output
+Firmware/ch572/build/
+
+# Local checkout of https://github.com/openwch/ch570 (its own git repo)
+Firmware/third_party/

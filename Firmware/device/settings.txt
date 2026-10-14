@@ -32,11 +32,13 @@ SIGN = 1
 
 # ---------------- setup / tuning (usually set once) ----------------
 
-# Lines up the left-to-right and right-to-left passes.
-# Turn CALIBRATE on, wave the wand, and you should see ONE thin bar.
-# If you see two bars, change SHIFT_MS (try 2, 4, 6, 8... or -2, -4...) until they merge.
+# Lines up the left-to-right and right-to-left passes. Leave this off to see the words.
+# Turn CALIBRATE on and you should see THREE thin bars: left edge of the word,
+# the centre, and the right edge. Moving right lights the top half of the LEDs.
+# Moving left lights the bottom half. The two halves stacking into one bar means
+# the passes agree. A top half sitting beside a bottom half means they do not.
 CALIBRATE = no
-SHIFT_MS = 0
+SHIFT_MS = 6
 
 # Which part of the swing keeps time:
 #    peaks = the two ends of the swing (recommended - works for any swing style)
@@ -46,10 +48,10 @@ ANCHOR = peaks
 
 # How much of the full sweep the display uses, in percent. The ends of a swing are
 # slow and squashed, so only the middle is used. Lower = narrower and cleaner.
-WIDTH = 70
+WIDTH = 60
 
-# Shape of your swing: auto, or a number from 0 (smooth) to 1 (sharp flicks at steady speed)
-SHAPE = auto
+# The picture is drawn as a smooth swing. Leave this at 0.
+SHAPE = 0
 
-# yes = prints diagnostics to the serial console (leave on while tuning)
-DEBUG = yes
+# yes = prints a report to the serial console after you stop. Leave off for normal use.
+DEBUG = no

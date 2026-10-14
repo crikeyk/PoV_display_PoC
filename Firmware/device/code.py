@@ -1,4 +1,4 @@
-# PoV wand - code.py   (v6)
+# PoV wand - code.py   (v7)
 # Most people never need to open this file. To change what the wand shows, edit:
 #     message.txt   (the words)      settings.txt   (options)      image.bmp   (a picture)
 import time, math, struct
@@ -14,8 +14,8 @@ acc._write(0x23, 0x88 | ({2: 0, 4: 1, 8: 2, 16: 3}[RANGE_G] << 4))   # block upd
 
 # ---------------- options that are NOT in settings.txt (change here if you need to) ----------------
 THRESH = 0.4        # g, minimum peak for a swing to count (auto-rises to ~half your real peaks)
-KP = 0.8            # phase correction per swing event: 1.0 = snap to every measurement, 0.1 = very smooth
-KW = 0.6            # how fast the speed follows the measured time between events (1.0 = instantly, 0.1 = slowly)
+KP = 0.2            # phase correction per turn. Slow on purpose: it settles over a few swings
+KW = 0.3            # how fast the pace follows the measured time between turns
 KI = 0.05           # extra speed correction from the phase error
 E_MAX = 1.2         # radians; events further off than this are ignored
 OUT_MAX = 2         # this many odd events in a row = believe the sensor and re-sync
@@ -36,12 +36,12 @@ LIT = "dark"        # image: which pixels light up: dark | light
 PASSES = "both"     # both | right | left
 FLIP_VERTICAL = False
 SIGN = 1            # 1 or -1 : flips left/right
-SHIFT_MS = 0.0      # timing nudge. Positive = draw later in the swing
-CALIBRATE = False   # True = show one bar at the swing centre
+SHIFT_MS = 6.0      # timing nudge, milliseconds. Positive = draw later in the swing
+CALIBRATE = False   # True = three bars, top half one way and bottom half the other
 ANCHOR = "peaks"    # auto | zero | peaks   (which swing event keeps time)
-WIDTH = 70          # percent of the full swing the display uses (the ends are squashed, so keep this below ~75)
-SHAPE = -1.0        # -1 = auto, or 0 = smooth swing (sine) ... 1 = steady speed with sharp turns
-DEBUG = True        # True = print run reports (with raw trace) to the serial console
+WIDTH = 60          # percent of the full swing the display uses (the ends are squashed)
+SHAPE = 0.0         # kept for old files. v7 always draws a sine; this no longer moves the picture
+DEBUG = False       # True = print a run report after you stop swinging
 EDGE_FLASH = 0.0    # 0 = off. 0.04 = flash every LED at each extreme
 
 warnings = 0
@@ -304,7 +304,7 @@ def wrap(e):                         # wrap an angle into -pi..pi
 
 shape_eff = SHAPE if SHAPE >= 0.0 else 0.0
 
-def swing_pos(ph):                   # -1 = left extreme, +1 = right extreme
+def swing_pos(ph):                   # unused by v7. The picture is always -cos(phase)
     p = -math.cos(ph)
     if shape_eff > 0.02:
         u = ph % TWO_PI
@@ -382,7 +382,7 @@ def reset_stats():
 
 def report(now, bias):
     n = len(Ts)
-    print("POV> ===== run report v6: copy everything from here =====")
+    print("POV> ===== run report v7: copy everything from here =====")
     print("POV> show=%s cols=%d ANCHOR=%s SHAPE=%.1f(now %.2f) SIGN=%d SHIFT=%.1fms CAL=%d PASSES=%s STRETCH=%.2f WIDTH=%d%% RANGE=%dg %.2fmg/count KP=%.2f KW=%.2f KI=%.2f"
           % (",".join(FRAME_NAMES), N, ANCHOR, SHAPE, shape_eff, SIGN, SHIFT_MS, CALIBRATE, PASSES, STRETCH, WIDTH, RANGE_G, G * 1000, KP, KW, KI))
     if ANCHOR == "auto":
@@ -430,6 +430,35 @@ def report(now, bias):
         print("POV> C " + " ".join("%d:%d:%d" % ev for ev in ev_log))
     print("POV> ===== end of report =====")
 
+def save_log(now):
+    """One line per swing, written only after the picture has stopped. Nothing is printed here."""
+    n = len(Ts)
+    if n < 2:
+        return
+    mean = sum(Ts) / n
+    sd = math.sqrt(sum((t - mean) ** 2 for t in Ts) / n)
+    rms = math.sqrt(sum(e * e for e in errs) / len(errs)) if errs else 0.0
+    pk_mean = (sum(peaks) / len(peaks)) if peaks else 0.0
+    tot = n_cols + n_skips
+    skip = (100.0 * n_skips / tot) if tot else 0.0
+    line = "t=%.0fs half=%.0fms sd=%.0f pace=%.2fHz surprise=%.1fms peak=%.1fg skip=%.0f%% out=%d reacq=%d" % (
+        now, mean, sd, 500.0 / mean, rms, pk_mean, skip, n_out, n_reacq)
+    try:
+        old = ""
+        try:
+            with open("/log.txt") as f:
+                old = f.read()
+        except OSError:
+            old = ""
+        lines = [ln for ln in old.split("\n") if ln]
+        lines.append(line)
+        if len(lines) > 30:
+            lines = lines[-30:]
+        with open("/log.txt", "w") as f:
+            f.write("\n".join(lines) + "\n")
+    except OSError:
+        pass
+
 # ---------------- startup: hold still for 0.5 s -> measure gravity (sets the scale) and resting x ----------------
 NOMINAL = {2: 1.0, 4: 2.0, 8: 4.0, 16: 12.0}[RANGE_G] * 0.001     # typical g per count for this range
 t0 = time.monotonic()
@@ -456,7 +485,7 @@ if norm > 5 and jitter < 0.05 * norm:
 elif norm > 5:
     scale_note = "NOMINAL (the board was moving at startup - keep it still after saving)"
 bias = SIGN * mx * G
-print("POV> ready (v6). range +/-%d g, %.2f mg/count (%s). resting x %+.3f g. Wiggle left-right now."
+print("POV> ready (v7). range +/-%d g, %.2f mg/count (%s). resting x %+.3f g. Wave it briskly, left and right."
       % (RANGE_G, G * 1000, scale_note, bias))
 
 t_ref = time.monotonic()
@@ -483,6 +512,13 @@ ptrack = 0; pdir = 0; pmax = 0.0; pt = 0.0; pprev_v = 0.0; pprev_t = 0.0
 pnext_v = None; pnext_t = 0.0
 acc_a2 = 0.0; acc_n = 0; crest_avg = 0.0; peaky = False
 t_last = 0.0; ev_last = 0
+# The picture uses a frozen copy of the oscillator for a whole pass. The live
+# phi/w keep tracking, and that newer pace is picked up on the next pass.
+draw_phi = 0.0
+draw_w = w
+draw_t = 0.0
+pass_frozen = False
+pass_dir = 0
 
 def handle_event(tc, ev):
     """A swing event happened at time tc. ev: +1/-1 = centre moving right/left, +2/-2 = left/right extreme."""
@@ -672,6 +708,7 @@ while True:
         avg_pk = 0.0                             # forget the old amplitude
         pdir = 0; ptrack = 0
     if sess_active and now - t_c > STOP_S:
+        save_log(now)
         if DEBUG:
             report(now, bias)
         sess_active = False
@@ -691,11 +728,27 @@ while True:
     mask = 0
     col = -1
     if locked:
-        ph = phi + w * (now - t_phi + SHIFT_MS / 1000.0)
-        pos = swing_pos(ph)
+        # Outside the word, follow the live oscillator. Once the letters start,
+        # keep this pace until the wand turns around, so a late peak correction
+        # cannot skip a stroke mid-letter.
+        if not pass_frozen:
+            draw_phi = phi
+            draw_w = w
+            draw_t = t_phi
+        ph = draw_phi + draw_w * (now - draw_t + SHIFT_MS / 1000.0)
+        pos = -math.cos(ph)
+        direction = 1 if math.sin(ph) > 0.0 else -1
+        if -HALF <= pos < HALF:
+            if not pass_frozen:
+                pass_dir = direction
+            pass_frozen = True
+        elif pass_frozen and direction != pass_dir:
+            pass_frozen = False
         if CALIBRATE:
-            if -0.04 < pos < 0.04:
-                mask = 0xFFFF
+            # Three thin bars: left edge of the word, centre, right edge.
+            # Moving right lights the top half. Moving left lights the bottom half.
+            if abs(pos) < 0.03 or abs(pos - HALF) < 0.03 or abs(pos + HALF) < 0.03:
+                mask = 0xFF00 if math.sin(ph) > 0.0 else 0x00FF
         elif PASS_DIR and math.sin(ph) * PASS_DIR <= 0:
             pass                                 # wrong direction: stay dark
         elif EDGE_FLASH and (pos > EDGE_POS or pos < -EDGE_POS):
@@ -714,6 +767,7 @@ while True:
                 if g > 0.002:
                     n_g2 += 1
     else:
+        pass_frozen = False
         ph_ = now % 2.0                          # idle heartbeat: the bottom LED blinks (twice if a file had a problem)
         if ph_ < 0.04 or (warnings and 0.2 < ph_ < 0.24):
             mask = 1

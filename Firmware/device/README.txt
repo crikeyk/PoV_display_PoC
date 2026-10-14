@@ -10,6 +10,7 @@ Plug the wand into your computer. A drive called CIRCUITPY appears.
        A  ~  draws a little heart.
    The wand restarts on its own. Put it down and keep it still for a second
    while it starts, then pick it up and wave it left-and-right.
+   Wave briskly. A slow wave does not turn into a steady picture.
 
 2. SHOW A PICTURE INSTEAD
    Open image.bmp in Paint. Draw with BLACK on the white background.
