@@ -243,6 +243,30 @@ The CH572 is on kernel port `usb 1-4`. After a failed ISP command the IN endpoin
 
 On J2 the RP2350 enumerates as `2e8a:000b` "Pico 2" and exposes a 1 MB FAT volume labelled `CIRCUITPY` plus a serial port. CircuitPython is 10.3.1. The drive's `code.py` is the sink script also saved as `Firmware/ch572/rp2350_blink.py`: GP3..GP18 outputs held low, then `while True: pass`. That keeps the LED cathodes low while the CH572 drives the anodes. It keeps running when the cable moves to J4, because the 5 V rail is shared. `code_v6.bak.py` on that drive is the old wand program. Do not change the other wands' firmware while finishing this board.
 
+## SC7A20 findings (hardware-verified with int_test.py, Nov 2026)
+- INT1 = GPIO23, INT2 = GPIO21. Both are push-pull driven (pull-up/down reads never change the value); no external pull needed.
+- CTRL_REG6 (0x25) bit1 H_LACTIVE: 0 = idle LOW / active HIGH, 1 = idle HIGH / active LOW. Matches the datasheet.
+- Motion interrupt config that works: CTRL_REG2 0x21=0x01 (HPIS1: high-pass feeds the comparator only, readings stay unfiltered, FDS=0),
+  CTRL_REG5 0x24 bit3 = latch INT1, CTRL_REG3 0x22=0x40 (AOI1 -> INT1), INT1_CFG 0x30=0x2A (X/Y/Z HIGH events, OR),
+  INT1_THS 0x32 (1 LSB = 8 mg x RANGE_G, so 128 mg at +/-16 g), INT1_DURATION 0x33. For INT2 use 0x34/0x36/0x37 and CTRL_REG6 0x60|H_LACTIVE
+  (the datasheet text for the routing bits is ambiguous; 0x60 worked). INT1 and INT2 fire together with identical flags.
+- Never enable LOW events: they are true at rest. INT*_SOURCE shows ZL/YL/XL set at rest; only the IA bit (0x40) means an interrupt fired.
+- Latched pin stays active until INT1_SOURCE 0x31 (INT2: 0x35) is read, then drops at once. Reading REFERENCE 0x26 resets the high-pass filter.
+  The pin re-fired about 50 ms after clearing in the test (residual motion or filter settling), so before sleeping: read 0x26, wait, clear
+  0x31, and verify the pin is idle.
+- Wake latency: pin change within about 40 ms of motion appearing in x/y/z (20 ms poll).
+- Scale: measured 7.72-7.74 mg/count at +/-16 g (datasheet: 8 mg/digit). code.py NOMINAL (12 mg) looks wrong and should be 8.
+- Resting noise is about +/-0.03 g. Latest swing log: peaks 5-8 g, max |x| 8.3 g.
+
+## Sleep (code.py v8)
+- Firmware: CircuitPython 10.3.1 Pico 2 (rp2350a) has NO alarm module. RP2350 alarm (light/deep sleep, time/pin alarms) arrives in
+  11.0.0 (10.x libs stay compatible). Until then v8 uses soft sleep: LEDs off, time.sleep(0.02) loop sampling GPIO23. Not true low power.
+- Settings: SLEEP, SLEEP_S (3), SLEEP_MODE (light|deep|soft), WAKE_G (0.25), INT_TEST. Constants: MOTION_G 0.25, SLEEP_RETRY_S 10.
+- Idle = no |de-biased x| > MOTION_G and no swing events for SLEEP_S. After wake the swing state is reset and the bias re-read.
+- int_test.py: INT_TEST = yes in settings.txt runs the INT1/INT2 polarity/drive check at boot. Set back to no afterwards.
+- Status: the hardware wake path is verified; the full sleep/wake loop in code.py has not been run on the board yet.
+- Serial tip: the VS Code serial tool sends lines without Enter. Use Ctrl-D to reload and read the boot lines instead of typing at the REPL.
+
 #### Handover (13 Oct 2026, 23:38)
 
 No flasher and no beep watcher are running. Do not start one until Harry has a strap that actually produces `1a86:55e0`. He asked to stop after several plugs that all came back as the application.
